@@ -1,12 +1,15 @@
 import streamlit as st
 import json
-from google import genai
+import requests
 
 # إعدادات مظهر الموقع
 st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="🤖", layout="centered")
 
 st.title("🤖 وكيل دعم العملاء الذكي")
 st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
+
+# جلب المفتاح السري بأمان من إعدادات الموقع
+API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 def load_order_data():
     try:
@@ -16,20 +19,32 @@ def load_order_data():
         return "لا توجد بيانات طلبات حالية."
 
 def get_ai_response(user_query):
+    if not API_KEY:
+        return "خطأ حاسم: لم يتم العثور على المفتاح السري GEMINI_API_KEY في إعدادات Secrets!"
+        
     orders_context = load_order_data()
+    
+    # الاتصال المباشر والذكي بالسيرفر بدون مكتبات خارجية معقدة
+    url = f"https://googleapis.com{API_KEY}"
+    headers = {"Content-Type": "application/json"}
+    
+    prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    
     try:
-        # الاتصال التلقائي بالمفتاح الافتراضي للسيرفر
-        client = genai.Client()
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        res_json = response.json()
         
-        prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
-        
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=prompt,
-        )
-        return response.text
+        if "candidates" in res_json:
+            return res_json["candidates"][0]["content"]["parts"][0]["text"]
+        elif "error" in res_json:
+            return f"خطأ من خادم جوجل: {res_json['error'].get('message', 'خطأ غير معروف')}"
+        return "تنبيه: استجابة الخادم غير متوافقة."
     except Exception as e:
-        return f"تنبيه: تأكد من كتابة المفتاح الجديد باسم GEMINI_API_KEY داخل الإعدادات. تفاصيل: {e}"
+        return f"حدث خطأ أثناء الاتصال: {e}"
 
 # صندوق الإدخال
 user_input = st.text_input("اكتب استفسارك هنا ثم اضغط Enter:", placeholder="أريد معرفة حالة الطلب رقم 1024؟")
