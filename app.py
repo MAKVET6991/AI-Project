@@ -1,8 +1,8 @@
 import streamlit as st
 import json
-import requests
+from google import genai
 
-# إعدادات الصفحة
+# إعدادات مظهر الموقع
 st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="🤖", layout="centered")
 
 st.title("🤖 وكيل دعم العملاء الذكي")
@@ -16,43 +16,30 @@ def load_order_data():
         with open("orders.json", "r", encoding="utf-8") as file:
             return json.load(file)
     except Exception:
-        return "لا توجد بيانات طلبات حالية أو الملف غير صالح."
+        return "لا توجد بيانات طلبات حالية."
 
 def get_ai_response(user_query):
     if not API_KEY:
         return "خطأ حاسم: لم يتم العثور على المفتاح السري GEMINI_API_KEY في إعدادات Secrets لموقع Streamlit!"
-        
+    
     orders_context = load_order_data()
     
-    # محاذاة المسافات مضبوطة بدقة هندسية هنا
-    base_url = "https://googleapis.com"
-    full_url = f"{base_url}?key={API_KEY}"
-    
-    headers = {"Content-Type": "application/json"}
-    
-    prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
-    
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    
     try:
-        response = requests.post(full_url, headers=headers, json=payload, timeout=15)
+        # الاتصال الرسمي والمضمون باستخدام مكتبة جوجل الحديثة
+        client = genai.Client(api_key=API_KEY)
         
-        if response.status_code != 200:
-            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح السري المكتوب داخل إعدادات Secrets بموقع Streamlit وعدم احتوائه على مسافات."
-            
-        res_json = response.json()
+        prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
         
-        if "candidates" in res_json:
-            return res_json["candidates"]["content"]["parts"]["text"]
-        elif "error" in res_json:
-            return f"خطأ في محتوى الاستجابة: {res_json['error'].get('message', 'خطأ غير معروف')}"
-        return "تنبيه: استجابة الخادم غير متوافقة مع الصيغة المطلوبة."
-    except requests.exceptions.RequestException as e:
-        return f"فشل الاتصال بالسيرفر، يرجى المحاولة لاحقاً: {e}"
+        response = client.models.generate_content(
+            model='gemini-3.6-flash',
+            contents=prompt,
+        )
+        
+        if response.text:
+            return response.text
+        return "تنبيه: لم يتمكن النموذج من إنتاج نص، يرجى المحاولة مجدداً."
     except Exception as e:
-        return f"حدث خطأ غير متوقع: {e}"
+        return f"حدث خطأ أثناء الاتصال بمكتبة جوجل الذكية: {e}"
 
 # صندوق الإدخال
 user_input = st.text_input("اكتب استفسارك هنا ثم اضغط Enter:", placeholder="أريد معرفة حالة الطلب رقم 1024؟")
