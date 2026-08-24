@@ -24,7 +24,7 @@ def get_ai_response(user_query):
         
     orders_context = load_order_data()
     
-    # تم تعديل اسم النموذج هنا بدقة إلى النسخة المستقرة gemini-1.5-flash
+    # تم تعديل اسم النموذج هنا بدقة إلى النسخة المستقرة gemini-3.6-flash
     base_url = "https://googleapis.com"
     full_url = f"{base_url}?key={API_KEY}"
     
