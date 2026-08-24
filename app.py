@@ -1,26 +1,16 @@
-import subprocess
-import sys
-
-# كود سحري يجبر السيرفر على تثبيت المكتبة الرسمية فوراً وبقوة عند التشغيل
-try:
-    from google import genai
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-genai"])
-    from google import genai
-
 import streamlit as st
 import json
+import requests
 
 # إعدادات الصفحة المظهرية للموقع
 st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="🤖", layout="centered")
 
 # تصميم عنوان الموقع بالأعلى
 st.title("🤖 وكيل دعم العملاء الذكي")
-st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
+st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم?")
 
-# تهيئة عميل جوجل بمفتاحك الخاص
-client = genai.Client(api_key="AQ.AbBRN6LWBFrM5ChcQE4JNDHLWI1ugAy_aJKNSJJKuemlobOw")
-
+# المفتاح السري المباشر
+API_KEY = st.secrets["GEMINI_API_KEY"]
 # دالة لقراءة بيانات الطلبات من ملف JSON
 def load_order_data():
     try:
@@ -29,17 +19,30 @@ def load_order_data():
     except FileNotFoundError:
         return "لا توجد بيانات طلبات حالية."
 
-# دالة لإرسال واستقبال الرسائل من الذكاء الاصطناعي
+# دالة للاتصال المباشر بالسيرفر بدون مكتبات خارجية
 def get_ai_response(user_query):
     orders_context = load_order_data()
+    url = f"https://googleapis.com{API_KEY}"
+    headers = {"Content-Type": "application/json"}
+    
+    prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    
     try:
-        chat = client.chats.create(model='gemini-3.6-flash')
-        prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
-        response = chat.send_message(prompt)
-        return response.text
+        response = requests.post(url, headers=headers, json=payload)
+        res_json = response.json()
+        if "candidates" in res_json:
+            return res_json["candidates"][0]["content"]["parts"][0]["text"]
+        elif "error" in res_json:
+            error_msg = res_json["error"].get("message", "")
+            if "quota" in error_msg.lower() or "429" in error_msg:
+                return "عذراً، لقد استهلكت الحصة المجانية المؤقتة للموقع حالياً، يرجى المحاولة بعد قليل."
+            return f"خطأ من الخادم: {error_msg}"
+        return "حدث خطأ غير متوقع في استجابة الخادم."
     except Exception as e:
-        if "429" in str(e) or "Quota" in str(e):
-            return "عذراً، لقد استهلكت الحصة المجانية المؤقتة للموقع حالياً، يرجى المحاولة بعد قليل أو الترقية للحساب التجاري."
         return f"حدث خطأ أثناء الاتصال: {e}"
 
 # إنشاء صندوق إدخال النص للعميل
