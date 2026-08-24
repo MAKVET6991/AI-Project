@@ -24,8 +24,10 @@ def get_ai_response(user_query):
         
     orders_context = load_order_data()
     
-    # الاتصال المباشر والذكي بالسيرفر بدون مكتبات خارجية معقدة
-    url = f"https://googleapis.com{API_KEY}"
+    # تقسيم الرابط بدقة شديدة لمنع الالتصاق والخطأ المطبعي نهائياً
+    base_url = "https://googleapis.com"
+    full_url = f"{base_url}?key={API_KEY}"
+    
     headers = {"Content-Type": "application/json"}
     
     prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
@@ -35,11 +37,15 @@ def get_ai_response(user_query):
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response = requests.post(full_url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code != 200:
+            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح السري المكتوب داخل إعدادات Secrets بموقع Streamlit."
+            
         res_json = response.json()
         
         if "candidates" in res_json:
-            return res_json["candidates"][0]["content"]["parts"][0]["text"]
+            return res_json["candidates"]["content"]["parts"]["text"]
         elif "error" in res_json:
             return f"خطأ من خادم جوجل: {res_json['error'].get('message', 'خطأ غير معروف')}"
         return "تنبيه: استجابة الخادم غير متوافقة."
