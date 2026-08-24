@@ -15,12 +15,12 @@ def load_order_data():
     try:
         with open("orders.json", "r", encoding="utf-8") as file:
             return json.load(file)
-    except FileNotFoundError:
-        return "لا توجد بيانات طلبات حالية."
+    except Exception:
+        return "لا توجد بيانات طلبات حالية أو الملف غير صالح."
 
 def get_ai_response(user_query):
     if not API_KEY:
-        return "خطأ: لم يتم العثور على مفتاح API في إعدادات Secrets لموقع Streamlit!"
+        return "خطأ حاسم: لم يتم العثور على المفتاح السري GEMINI_API_KEY في إعدادات Secrets لموقع Streamlit!"
         
     orders_context = load_order_data()
     
@@ -37,16 +37,21 @@ def get_ai_response(user_query):
     }
     
     try:
-        response = requests.post(full_url, headers=headers, json=payload, timeout=10)
+        response = requests.post(full_url, headers=headers, json=payload, timeout=15)
+        
+        # حماية ضد الانهيار: التحقق من كود نجاح الاتصال أولاً قبل فك التشفير
+        if response.status_code != 200:
+            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح السري المكتوب داخل إعدادات Secrets بموقع Streamlit وعدم احتوائه على مسافات."
+            
         res_json = response.json()
         
         if "candidates" in res_json:
-            return res_json["candidates"][0]["content"]["parts"][0]["text"]
+            return res_json["candidates"]["content"]["parts"]["text"]
         elif "error" in res_json:
-            return f"خطأ من خادم جوجل: {res_json['error'].get('message', 'خطأ غير معروف')}"
+            return f"خطأ في محتوى الاستجابة: {res_json['error'].get('message', 'خطأ غير معروف')}"
         return "تنبيه: استجابة الخادم غير متوافقة مع الصيغة المطلوبة."
     except requests.exceptions.RequestException as e:
-        return f"فشل الاتصال بالإنترنت أو بالسيرفر: {e}"
+        return f"فشل الاتصال بالسيرفر، يرجى المحاولة لاحقاً: {e}"
     except Exception as e:
         return f"حدث خطأ غير متوقع: {e}"
 
@@ -57,4 +62,4 @@ if user_input:
     with st.spinner("جاري التفكير والرد..."):
         ai_reply = get_ai_response(user_input)
         st.subheader("🤖 رد المساعد:")
-        st.success(ai_reply) # تم تغييرها إلى الأخضر المريح والواضح بدل الأزرق
+        st.success(ai_reply)
