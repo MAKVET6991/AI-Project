@@ -8,8 +8,8 @@ st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="�
 st.title("🤖 وكيل دعم العملاء الذكي")
 st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
 
-# جلب المفتاح السري بأمان من إعدادات الموقع
-API_KEY = st.secrets.get("GEMINI_API_KEY", "")
+# 💡 ضع مفتاح جوجل الجديد النظيف هنا مباشرة بين علامتي التنصيص
+API_KEY = "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg"
 
 def load_order_data():
     try:
@@ -19,12 +19,12 @@ def load_order_data():
         return "لا توجد بيانات طلبات حالية."
 
 def get_ai_response(user_query):
-    if not API_KEY:
-        return "خطأ حاسم: لم يتم العثور على المفتاح السري GEMINI_API_KEY في إعدادات Secrets!"
+    if not API_KEY or API_KEY == "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg":
+        return "خطأ: يرجى كتابة مفتاح API السري الخاص بك داخل ملف main.py أولاً!"
         
     orders_context = load_order_data()
     
-    # الرابط المستقر والنهائي تماماً
+    # الرابط المباشر والنظيف بدون أي تعقيدات
     base_url = "https://googleapis.com"
     full_url = f"{base_url}?key={API_KEY}"
     
@@ -40,7 +40,7 @@ def get_ai_response(user_query):
         response = requests.post(full_url, headers=headers, json=payload, timeout=15)
         
         if response.status_code != 200:
-            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح السري المكتوب داخل إعدادات Secrets بموقع Streamlit."
+            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح المكتوب داخل الكود."
             
         res_json = response.json()
         if "candidates" in res_json:
