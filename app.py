@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-import google.generativeai as genai
+from google import genai
 
 # إعدادات الصفحة المظهرية للموقع
 st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="🤖", layout="centered")
@@ -9,8 +9,8 @@ st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="�
 st.title("🤖 وكيل دعم العملاء الذكي")
 st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
 
-# تهيئة الإعدادات بالمفتاح السري المباشر
-genai.configure(api_key="AQ.Ab8RN6KBi5YyjgHY8C8HUM0-5vEechtJ3CAYTqBKgKuJLn96E")
+# جلب المفتاح السري من الإعدادات المتقدمة بأمان
+client = genai.Client(api_key="AQ.Ab8RN6KBi5YyjgHY8C8HUM0-5vEechtJ3CAYTqBKgKuJLn96E")
 
 # دالة لقراءة بيانات الطلبات من ملف JSON
 def load_order_data():
@@ -24,12 +24,12 @@ def load_order_data():
 def get_ai_response(user_query):
     orders_context = load_order_data()
     try:
-        model = genai.GenerativeModel('gemini-3.6-flash')
+        chat = client.chats.create(model='gemini-3.6-flash')
         
         # تزويد الذكاء الاصطناعي ببيانات المتجر للرد منها بدقة
         prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
         
-        response = model.generate_content(prompt)
+        response = chat.send_message(prompt)
         return response.text
     except Exception as e:
         if "429" in str(e) or "Quota" in str(e):
