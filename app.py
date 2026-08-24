@@ -25,11 +25,8 @@ def get_ai_response(user_query):
     orders_context = load_order_data()
     
     # رابط نظيف ومباشر ومقسم لضمان عدم حدوث أي خطأ مطبعي في الدمج
-    base_url = "https://googleapis.com"
-    full_url = f"{base_url}?key={API_KEY}"
-    
-    headers = {"Content-Type": "application/json"}
-    
+base_url = "https://googleapis.com"
+    full_url = f"{base_url}?key={API_KEY}"    
     prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
     
     payload = {
