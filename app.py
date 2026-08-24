@@ -24,9 +24,12 @@ def get_ai_response(user_query):
         
     orders_context = load_order_data()
     
-    # رابط نظيف ومباشر ومقسم لضمان عدم حدوث أي خطأ مطبعي في الدمج
-base_url = "https://googleapis.com"
-    full_url = f"{base_url}?key={API_KEY}"    
+    # محاذاة المسافات مضبوطة بدقة هندسية هنا
+    base_url = "https://googleapis.com"
+    full_url = f"{base_url}?key={API_KEY}"
+    
+    headers = {"Content-Type": "application/json"}
+    
     prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
     
     payload = {
@@ -36,7 +39,6 @@ base_url = "https://googleapis.com"
     try:
         response = requests.post(full_url, headers=headers, json=payload, timeout=15)
         
-        # حماية ضد الانهيار: التحقق من كود نجاح الاتصال أولاً قبل فك التشفير
         if response.status_code != 200:
             return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح السري المكتوب داخل إعدادات Secrets بموقع Streamlit وعدم احتوائه على مسافات."
             
