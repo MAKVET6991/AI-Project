@@ -7,10 +7,11 @@ st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="�
 
 # تصميم عنوان الموقع بالأعلى
 st.title("🤖 وكيل دعم العملاء الذكي")
-st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم?")
+st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
 
-# المفتاح السري المباشر
+# جلب المفتاح السري بأمان من إعدادات الموقع
 API_KEY = st.secrets["GEMINI_API_KEY"]
+
 # دالة لقراءة بيانات الطلبات من ملف JSON
 def load_order_data():
     try:
@@ -19,9 +20,11 @@ def load_order_data():
     except FileNotFoundError:
         return "لا توجد بيانات طلبات حالية."
 
-# دالة للاتصال المباشر بالسيرفر بدون مكتبات خارجية
+# دالة للاتصال المباشر بالسيرفر
 def get_ai_response(user_query):
     orders_context = load_order_data()
+    
+    # الرابط الصحيح والكامل الموجه لسيرفر جوجل مباشرة
     url = f"https://googleapis.com{API_KEY}"
     headers = {"Content-Type": "application/json"}
     
@@ -37,10 +40,7 @@ def get_ai_response(user_query):
         if "candidates" in res_json:
             return res_json["candidates"][0]["content"]["parts"][0]["text"]
         elif "error" in res_json:
-            error_msg = res_json["error"].get("message", "")
-            if "quota" in error_msg.lower() or "429" in error_msg:
-                return "عذراً، لقد استهلكت الحصة المجانية المؤقتة للموقع حالياً، يرجى المحاولة بعد قليل."
-            return f"خطأ من الخادم: {error_msg}"
+            return f"خطأ من الخادم: {res_json['error'].get('message', '')}"
         return "حدث خطأ غير متوقع في استجابة الخادم."
     except Exception as e:
         return f"حدث خطأ أثناء الاتصال: {e}"
