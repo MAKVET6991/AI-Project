@@ -1,57 +1,183 @@
 import streamlit as st
+import google.generativeai as genai
 import requests
+import stripe
+from datetime import datetime, timezone
 
-# إعدادات مظهر واجهة التطبيق
-st.set_page_config(page_title="منصة المحادثات الذكية", page_icon="💬", layout="centered")
+# 1. إعداد عنوان وتصميم الصفحة بألوان زاهية ومشرقة
+st.set_page_config(
+    page_title="منصة المحادثة الاحترافية الذكية", 
+    page_icon="💬", 
+    layout="centered"
+)
 
-st.title("💬 غرف المحادثات الاحترافية للموظفين")
-st.write("مرحباً بك في النسخة التجريبية الأولى من منصتك الخاصة!")
+# تنسيق المظهر العصري الزاهي والمبهج (Light Mode)
+st.markdown("""
+    <style>
+    .stApp { background-color: #f8fafc; color: #1e293b; }
+    .stChatInputContainer { border-radius: 12px; border: 1px solid #cbd5e1 !important; background-color: #ffffff !important;}
+    h1 { color: #4f46e5 !important; text-align: center; font-family: 'Segoe UI', sans-serif; }
+    p { text-align: center; color: #64748b; }
+    .login-box { padding: 20px; border-radius: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); }
+    .file-box { padding: 10px; border-radius: 8px; background-color: #f0fdf4; margin-bottom: 10px; border: 1px dashed #22c55e; color: #166534; }
+    .admin-box { padding: 12px; border-radius: 8px; background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; margin-top: 10px; }
+    .trial-box { padding: 10px; border-radius: 8px; background-color: #fef3c7; border: 1px solid #fde68a; color: #92400e; margin-bottom: 15px; text-align: center; font-weight: bold; }
+    .pay-box { padding: 20px; border-radius: 12px; background-color: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; text-align: center; }
+    </style>
+""", unsafe_allow_html=True)
 
-# 💡 ضع مفتاح جوجل الذكي الخاص بك هنا بين علامتي التنصيص
-API_KEY = "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg"
+# إعداد مكتبة Stripe بالمفتاح السري لشركتكِ
+stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
 
-def get_ai_chat_response(user_query):
-    if not API_KEY or API_KEY == "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg":
-        return "تنبيه من النظام: يرجى كتابة الـ API Key الخاص بك داخل الكود أولاً لتفعيل المساعد الذكي."
-        
-    url = f"https://googleapis.com{API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    
-    system_instruction = "أنت مساعد ذكي وموظف خارق داخل غرفة محادثات سرية لشركة احترافية. أجب على استفسارات الموظفين والمدراء بأسلوب عملي، ذكي، ومؤدب جداً باللغة العربية."
-    
-    payload = {
-        "contents": [{"parts": [{"text": f"{system_instruction}\n\nرسالة الموظف: {user_query}"}]}]
+# دالة مساعدة للاتصال بقاعدة بيانات Supabase عبر REST API
+def supabase_request(endpoint, method="GET", json_data=None, params=None):
+    url = f"{st.secrets['SUPABASE_URL']}/rest/v1/{endpoint}"
+    headers = {
+        "apikey": st.secrets["SUPABASE_KEY"],
+        "Authorization": f"Bearer {st.secrets['SUPABASE_KEY']}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
     }
-    
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        if response.status_code == 200:
-            res_json = response.json()
-            return res_json["candidates"]["content"]["parts"]["text"]
-        return f"خطأ من الخادم (كود {response.status_code}): يرجى التحقق من صلاحية المفتاح."
+        if method == "GET":
+            response = requests.get(url, headers=headers, params=params)
+        elif method == "POST":
+            response = requests.post(url, headers=headers, json=json_data)
+        elif method == "PATCH":
+            response = requests.patch(url, headers=headers, json=json_data, params=params)
+        return response.json()
     except Exception as e:
-        return f"حدث خطأ أثناء الاتصال بالذكاء الاصطناعي: {e}"
+        return []
 
-# إنشاء ذاكرة مؤقتة لحفظ الرسائل داخل الصفحة
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# 2. تهيئة حالات الذاكرة المؤقتة للمتصفح الحالي
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "current_messages" not in st.session_state:
+    st.session_state.current_messages = []
+if "is_subscribed" not in st.session_state:
+    st.session_state.is_subscribed = False
+if "days_left" not in st.session_state:
+    st.session_state.days_left = 0
 
-# عرض الرسائل المتبادلة في الصفحة بشكل منظم
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
-# صندوق إدخال الرسائل الحي
-user_input = st.chat_input("اكتب رسالتك للموظفين أو للمساعد الذكي هنا...")
-
-if user_input:
-    with st.chat_message("user"):
-        st.write(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
+# 3. شاشة إدارة الحسابات السحابية (تسجيل دخول / إنشاء حساب جديد)
+if not st.session_state.logged_in:
+    st.title("🔐 بوابة الوصول للمنصة العالمية المدفوعة")
+    st.write("سجّل حسابك الآن للحصول على 7 أيام تجريبية مجانية كاملة الميزات")
     
-    with st.spinner("جاري تفكير المساعد الذكي..."):
-        ai_reply = get_ai_chat_response(user_input)
+    tab1, tab2 = st.tabs(["🔑 تسجيل الدخول", "📝 إنشاء حساب جديد"])
+    
+    # قسم تسجيل الدخول وقراءة حالة الاشتراك من السيرفر
+    with tab1:
+        with st.container():
+            st.markdown('<div class="login-box">', unsafe_allow_html=True)
+            username_input = st.text_input("اسم المستخدم", key="login_user").strip()
+            password_input = st.text_input("كلمة المرور", type="password", key="login_pass")
+            login_button = st.button("تسجيل الدخول", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            if login_button:
+                if username_input == "admin" and password_input == "admin123":
+                    st.session_state.logged_in = True
+                    st.session_state.username = "admin"
+                    st.session_state.is_subscribed = True
+                    st.success("تم دخول المسؤولة بنجاح!")
+                    st.rerun()
+                else:
+                    user_data = supabase_request("users_subscriptions", "GET", params={"username": f"eq.{username_input}"})
+                    if user_data and user_data[0]["password_hash"] == password_input:
+                        u = user_data[0]
+                        st.session_state.logged_in = True
+                        st.session_state.username = username_input
+                        
+                        # حساب الأيام المتبقية في الفترة التجريبية الـ 7 أيام
+                        trial_end = datetime.fromisoformat(u["trial_end_date"].replace("Z", "+00:00"))
+                        now = datetime.now(timezone.utc)
+                        delta = (trial_end - now).days + 1
+                        
+                        st.session_state.days_left = max(0, delta)
+                        
+                        # التحقق من حالة تفعيل الحساب (إما فعال أو لا يزال في المدة التجريبية)
+                        if u["subscription_status"] == "active" or st.session_state.days_left > 0:
+                            st.session_state.is_subscribed = True
+                        else:
+                            st.session_state.is_subscribed = False
+                            
+                        st.success(f"مرحباً بك مجدداً {username_input}!")
+                        st.rerun()
+                    else:
+                        st.error("اسم المستخدم أو كلمة المرور غير صحيحة!")
+                    
+    # قسم إنشاء حساب جديد وحفظه سحابياً للأبد مع ربطه بـ Stripe Customer تلقائياً
+    with tab2:
+        with st.container():
+            st.markdown('<div class="login-box">', unsafe_allow_html=True)
+            new_username = st.text_input("اختر اسم مستخدم جديد", key="reg_user").strip()
+            new_password = st.text_input("اختر كلمة مرور", type="password", key="reg_pass")
+            register_button = st.button("تأكيد وإنشاء الحساب", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            if register_button:
+                if not new_username or not new_password:
+                    st.error("الرجاء ملء جميع الحقول أولاً!")
+                else:
+                    check_user = supabase_request("users_subscriptions", "GET", params={"username": f"eq.{new_username}"})
+                    if check_user:
+                        st.error("اسم المستخدم هذا مسجل مسبقاً! اختر اسماً آخر.")
+                    else:
+                        try:
+                            # إنشاء ملف عميل رسمي للمستخدم الجديد في نظام Stripe تلقائياً
+                            customer = stripe.Customer.create(description=f"User: {new_username}")
+                            
+                            new_user_payload = {
+                                "username": new_username,
+                                "password_hash": new_password,
+                                "subscription_status": "trial",
+                                "stripe_customer_id": customer.id
+                            }
+                            supabase_request("users_subscriptions", "POST", json_data=new_user_payload)
+                            st.success("🎉 تم إنشاء حسابك وحفظه بنجاح! اذهب لتبويب (تسجيل الدخول) للبدء فوراً.")
+                        except Exception as e:
+                            st.error(f"حدث خطأ أثناء تهيئة الحساب المالي: {e}")
+
+# 4. الشاشات بعد الدخول بنجاح (تفحص صلاحية الاشتراك)
+else:
+    # أ) حالة انتهاء التجربة والمطالبة بالدفع لفتح الحساب
+    if not st.session_state.is_subscribed:
+        st.title("💳 انتهت الفترة التجريبية المجانية")
+        st.markdown(f"<div class='pay-box'><h3>عذراً يا {st.session_state.username}، لقد انتهت الـ 7 أيام التجريبية لحسابك!</h3><p>يرجى الاشتراك لتفعيل الحساب ومتابعة استخدام ميزات المساعد الذكي ورفع الملفات الفائقة.</p></div>", unsafe_allow_html=True)
         
-    with st.chat_message("assistant"):
-        st.write(ai_reply)
-    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+        # إنشاء رابط صفحة دفع آمنة واحترافية من Stripe فوراً للمستخدم الحالي
+        try:
+            user_data = supabase_request("users_subscriptions", "GET", params={"username": f"eq.{st.session_state.username}"})
+            customer_id = user_data[0]["stripe_customer_id"] if user_data else None
+            
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{'price': st.secrets["STRIPE_PRICE_ID"], 'quantity': 1}],
+                mode='subscription',
+                customer=customer_id,
+                success_url=st.secrets.get("SUPABASE_URL", "https://stripe.com"), # تحويل وهمي بعد النجاح
+                cancel_url="https://stripe.com",
+            )
+            
+            st.markdown(f"<br><a href='{session.url}' target='_blank'><button style='width:100%; padding:12px; background-color:#4f46e5; color:white; border:none; border-radius:8px; font-size:18px; cursor:pointer; font-weight:bold;'>💳 اضغط هنا للدفع الآمن عبر Stripe وتفعيل الحساب</button></a>", unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"خطأ في إنشاء رابط الدفع: {e}")
+            
+        if st.button("🚪 العودة للخارج", use_container_width=True):
+            st.session_state.logged_in = False
+            st.rerun()
+
+    # ب) حالة الحساب فعال (إما في التجربة أو مشترك دفع فعلي)
+    else:
+        st.title("💬 غرف المحادثات الاحترافية العالمية")
+        
+        # عرض شريط التنبيه بالأيام المتبقية للمشتركين العاديين
+        if st.session_state.username != "admin" and st.session_state.days_left > 0:
+            st.markdown(f"<div class='trial-box'>⏱️ أنت الآن في الفترة التجريبية المجانية! متبقي لكِ: {st.session_state.days_left} أيام كاملة الميزات.</div>", unsafe_allow_html=True)
+        elif st.session_state.username != "admin":
+            st.markdown("<div class='trial-box' style='background-color:#dcfce7; border-color:#86efac; color:#166534;'>✅ اشتراكك مفعّل وحسابك بريميوم بالكامل!</div>", unsafe_allow_html=True)
+
+        # جلب إعدادات الذكاء الاصطناعي لـ Gemini
