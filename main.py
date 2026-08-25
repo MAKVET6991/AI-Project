@@ -1,61 +1,57 @@
 import streamlit as st
-import json
 import requests
 
-# إعدادات مظهر الموقع
-st.set_page_config(page_title="مساعد المتجر الذكي", page_icon="🤖", layout="centered")
+# إعدادات مظهر واجهة التطبيق
+st.set_page_config(page_title="منصة المحادثات الذكية", page_icon="💬", layout="centered")
 
-st.title("🤖 وكيل دعم العملاء الذكي")
-st.write("أهلاً بك! أنا مساعدك الذكي، كيف يمكنني خدمتك اليوم؟")
+st.title("💬 غرف المحادثات الاحترافية للموظفين")
+st.write("مرحباً بك في النسخة التجريبية الأولى من منصتك الخاصة!")
 
-# 💡 ضع مفتاح جوجل الجديد النظيف هنا مباشرة بين علامتي التنصيص
+# 💡 ضع مفتاح جوجل الذكي الخاص بك هنا بين علامتي التنصيص
 API_KEY = "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg"
 
-def load_order_data():
-    try:
-        with open("orders.json", "r", encoding="utf-8") as file:
-            return json.load(file)
-    except Exception:
-        return "لا توجد بيانات طلبات حالية."
-
-def get_ai_response(user_query):
+def get_ai_chat_response(user_query):
     if not API_KEY or API_KEY == "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg":
-        return "خطأ: يرجى كتابة مفتاح API السري الخاص بك داخل ملف main.py أولاً!"
+        return "تنبيه من النظام: يرجى كتابة الـ API Key الخاص بك داخل الكود أولاً لتفعيل المساعد الذكي."
         
-    orders_context = load_order_data()
-    
-    # الرابط المباشر والنظيف بدون أي تعقيدات
-    base_url = "https://googleapis.com"
-    full_url = f"{base_url}?key={API_KEY}"
-    
+    url = f"https://googleapis.com{API_KEY}"
     headers = {"Content-Type": "application/json"}
     
-    prompt = f"أنت وكيل دعم عملاء محترف في متجر إلكتروني. استخدم بيانات الطلبات التالية للإجابة على استفسار العميل بدقة باللغة العربية وبأسلوب مهذب ومختصر: {orders_context}\n\nسؤال العميل: {user_query}"
+    system_instruction = "أنت مساعد ذكي وموظف خارق داخل غرفة محادثات سرية لشركة احترافية. أجب على استفسارات الموظفين والمدراء بأسلوب عملي، ذكي، ومؤدب جداً باللغة العربية."
     
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
+        "contents": [{"parts": [{"text": f"{system_instruction}\n\nرسالة الموظف: {user_query}"}]}]
     }
     
     try:
-        response = requests.post(full_url, headers=headers, json=payload, timeout=15)
-        
-        if response.status_code != 200:
-            return f"خطأ من خادم جوجل (كود {response.status_code}): يرجى التأكد من صحة المفتاح المكتوب داخل الكود."
-            
-        res_json = response.json()
-        if "candidates" in res_json:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        if response.status_code == 200:
+            res_json = response.json()
             return res_json["candidates"]["content"]["parts"]["text"]
-        elif "error" in res_json:
-            return f"خطأ من خادم جوجل: {res_json['error'].get('message', 'خطأ غير معروف')}"
-        return "تنبيه: استجابة الخادم غير متوافقة."
+        return f"خطأ من الخادم (كود {response.status_code}): يرجى التحقق من صلاحية المفتاح."
     except Exception as e:
-        return f"حدث خطأ أثناء الاتصال: {e}"
+        return f"حدث خطأ أثناء الاتصال بالذكاء الاصطناعي: {e}"
 
-# صندوق الإدخال
-user_input = st.text_input("اكتب استفسارك هنا ثم اضغط Enter:", placeholder="أريد معرفة حالة الطلب رقم 1024؟")
+# إنشاء ذاكرة مؤقتة لحفظ الرسائل داخل الصفحة
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# عرض الرسائل المتبادلة في الصفحة بشكل منظم
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# صندوق إدخال الرسائل الحي
+user_input = st.chat_input("اكتب رسالتك للموظفين أو للمساعد الذكي هنا...")
 
 if user_input:
-    with st.spinner("جاري التفكير والرد..."):
-        ai_reply = get_ai_response(user_input)
-        st.subheader("🤖 رد المساعد:")
-        st.success(ai_reply)
+    with st.chat_message("user"):
+        st.write(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    with st.spinner("جاري تفكير المساعد الذكي..."):
+        ai_reply = get_ai_chat_response(user_input)
+        
+    with st.chat_message("assistant"):
+        st.write(ai_reply)
+    st.session_state.messages.append({"role": "assistant", "content": ai_reply})
