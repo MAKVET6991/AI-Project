@@ -16,11 +16,11 @@ genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel('gemini-3.6-flash')
 
     # 3. تهيئة مصفوفة تاريخ المحادثة (لمنع التكرار وحفظ السياق)
-    if "messages" not in st.session_state:
+if "messages" not in st.session_state:
         st.session_state.messages = []
 
     # 4. عرض المحادثة السابقة بشكل مرتب ومحمي من التكرار
-    for message in st.session_state.messages:
+for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
