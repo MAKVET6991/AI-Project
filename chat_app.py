@@ -7,9 +7,9 @@ st.set_page_config(page_title="غرف المحادثات الاحترافية و
 st.title("غرف المحادثات الاحترافية والمحمية 💬")
 
 # 2. وضع مفتاح الـ API الخاص بك في مكانه الصحيح والآمن بالأسفل:
-GOOGLE_API_KEY = "AIzaSyBwNiIZWHX2S19orOMj_-yHkpz9VvirWcg_XrVR75TtUtwJg"
+GOOGLE_API_KEY = "AQ.Ab8RN6JcXhp6iQTTXm0J4MIgweY15QP3FvmfXDWF8AVrm2cYTg"
 
-if GOOGLE_API_KEY == "AQ.Ab8RN6IIJ8M2519orDMl_-yHxpzBYvirNcg_XrRVR7StE1TuJg":
+if GOOGLE_API_KEY == "AQ.Ab8RN6JcXhp6iQTTXm0J4MIgweY15QP3FvmfXDWF8AVrm2cYTg":
     st.warning("رجاءً، قم بإضافة مفتاح الـ API المجاني الخاص بـ Gemini في سطر الكود ليعمل البوت بشكل صحيح.")
 else:
     genai.configure(api_key=GOOGLE_API_KEY)
